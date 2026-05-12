@@ -72,3 +72,6 @@ else
     echo "📁 Available DTS files:"
     find target/linux/mediatek -name "*rax3000m*.dts" 2>/dev/null
 fi
+# 单独禁用 lucky 插件（LuCI 界面 + 核心二进制）
+sed -i 's/CONFIG_PACKAGE_luci-app-lucky=y/CONFIG_PACKAGE_luci-app-lucky=n/' .config
+sed -i 's/CONFIG_PACKAGE_lucky=y/CONFIG_PACKAGE_lucky=n/' .config
