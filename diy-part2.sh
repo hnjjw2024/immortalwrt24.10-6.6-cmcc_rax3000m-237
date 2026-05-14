@@ -28,6 +28,10 @@ echo "🚫 禁用 lucky 插件..."
 sed -i 's/CONFIG_PACKAGE_luci-app-lucky=y/CONFIG_PACKAGE_luci-app-lucky=n/' .config
 sed -i 's/CONFIG_PACKAGE_lucky=y/CONFIG_PACKAGE_lucky=n/' .config
 
+# 在 diy-part2.sh 中禁Zabbix 和 Python-ubus用相关包
+sed -i 's/CONFIG_PACKAGE_zabbix.*=y/# CONFIG_PACKAGE_zabbix is not set/g' .config
+sed -i 's/CONFIG_PACKAGE_python-ubus.*=y/# CONFIG_PACKAGE_python-ubus is not set/g' .config
+make defconfig
 # ========================================
 # 3. 添加 CUPS 打印服务支持 ⭐ 核心修复
 # ========================================
