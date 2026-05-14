@@ -10,73 +10,175 @@
 # Description: OpenWrt DIY script part 2 (After Update feeds)
 #
 
-echo "🔧 开始执行自定义配置..."
+echo "========================================"
+echo "🔧 开始执行自定义配置脚本..."
+echo "========================================"
 
 # ========================================
 # 1. 基础环境准备
 # ========================================
+echo "📦 安装系统依赖..."
 sudo apt install -y libfuse-dev 2>/dev/null || true
 
 # 更新 Golang（如需）
+echo "🔄 更新 Golang 源..."
 rm -rf feeds/packages/lang/golang
 git clone https://github.com/sbwml/packages_lang_golang -b 24.x feeds/packages/lang/golang 2>/dev/null || true
 
 # ========================================
-# 2. 禁用 lucky 插件
+# 2. 禁用 lucky 插件（按需）
 # ========================================
-echo "🚫 禁用 lucky 插件..."
-sed -i 's/CONFIG_PACKAGE_luci-app-lucky=y/CONFIG_PACKAGE_luci-app-lucky=n/' .config
-sed -i 's/CONFIG_PACKAGE_lucky=y/CONFIG_PACKAGE_lucky=n/' .config
+echo "🚫 处理 lucky 插件配置..."
+sed -i 's/CONFIG_PACKAGE_luci-app-lucky=y/CONFIG_PACKAGE_luci-app-lucky=n/' .config 2>/dev/null || true
+sed -i 's/CONFIG_PACKAGE_lucky=y/CONFIG_PACKAGE_lucky=n/' .config 2>/dev/null || true
 
-# 在 diy-part2.sh 中禁Zabbix 和 Python-ubus用相关包
-sed -i 's/CONFIG_PACKAGE_zabbix.*=y/# CONFIG_PACKAGE_zabbix is not set/g' .config
-sed -i 's/CONFIG_PACKAGE_python-ubus.*=y/# CONFIG_PACKAGE_python-ubus is not set/g' .config
-make defconfig
 # ========================================
-# 3. 添加 CUPS 打印服务支持 ⭐ 核心修复
+# 3. 添加 CUPS 打印服务支持 ⭐ 核心功能
 # ========================================
 echo "🖨️ 注入 CUPS 打印服务配置..."
 
-# 3.1 确保 packages feed 已安装索引
+# 3.1 确保 packages feed 索引最新（正确顺序：先 update 再 install）
+echo "📥 更新 packages feed 索引..."
+./scripts/feeds update packages 2>/dev/null
 ./scripts/feeds install -a 2>/dev/null
 
-# 3.2 直接注入配置到 .config（不要追加到脚本自身！）
+# 3.2 直接注入配置到 .config 文件（⚠️ 不要追加到脚本自身！）
+echo "📝 写入 CUPS 配置项..."
 cat >> .config << 'CUPS_CONFIG'
 
-# ========== USB Printer & CUPS Support ==========
+# ========================================
+# USB Printer & CUPS Support Configuration
+# ========================================
+
+# 1. USB Printer Kernel Module (必需)
 CONFIG_PACKAGE_kmod-usb-printer=y
+
+# 2. CUPS Core Packages
 CONFIG_PACKAGE_cups=y
 CONFIG_PACKAGE_cups-client=y
 CONFIG_PACKAGE_cups-filters=y
+
+# 3. CUPS Libraries (必需依赖)
 CONFIG_PACKAGE_libcups=y
 CONFIG_PACKAGE_libcupsimage=y
+
+# 4. 可选依赖（提升打印机兼容性，尤其是 HP 喷墨打印机）
+CONFIG_PACKAGE_libpng=y
+CONFIG_PACKAGE_libjpeg=y
+CONFIG_PACKAGE_libtiff=y
+
+# 5. CUPS Features
 CONFIG_CUPS_HAS_WEBIF=y
-# 可选：轻量级方案（二选一）
+# CONFIG_CUPS_HAS_DBUS is not set    # 禁用 D-Bus 节省空间
+# CONFIG_CUPS_HAS_GSSAPI is not set  # 禁用 GSSAPI 节省空间
+
+# 6. 可选：PPD 驱动工具（如需手动添加打印机驱动可启用）
+# CONFIG_PACKAGE_cups-ppdc=y
+
+# 7. 备选方案：p910nd 轻量级打印服务（如 CUPS 体积过大可改用此方案）
+# 启用方法：注释上方 CUPS 配置，取消下方注释
 # CONFIG_PACKAGE_p910nd=y
+# CONFIG_PACKAGE_kmod-usb-printer=y
+
+# ========================================
+# End of Print Service Configuration
+# ========================================
 CUPS_CONFIG
 
-# 3.3 清理冲突的禁用配置
+# 3.3 清理冲突的禁用配置（确保新配置生效）
+echo "🧹 清理冲突配置项..."
 sed -i '/# CONFIG_PACKAGE_kmod-usb-printer is not set/d' .config
 sed -i '/# CONFIG_PACKAGE_cups.*is not set/d' .config
 sed -i '/# CONFIG_PACKAGE_libcups.*is not set/d' .config
+sed -i '/# CONFIG_PACKAGE_libcupsimage is not set/d' .config
+sed -i '/# CONFIG_PACKAGE_libpng is not set/d' .config
+sed -i '/# CONFIG_PACKAGE_libjpeg is not set/d' .config
+sed -i '/# CONFIG_PACKAGE_libtiff is not set/d' .config
+sed -i '/# CONFIG_PACKAGE_p910nd is not set/d' .config
 
-# 3.4 立即更新配置依赖（关键！）
-echo "⚙️ 更新配置依赖..."
-make defconfig
+# 3.4 立即更新配置依赖（⚠️ 关键步骤！）
+echo "⚙️ 更新配置依赖关系..."
+make defconfig >/dev/null 2>&1
 
 # 3.5 验证配置是否注入成功
-if grep -q "CONFIG_PACKAGE_cups=y" .config && grep -q "CONFIG_PACKAGE_kmod-usb-printer=y" .config; then
+echo "🔍 验证配置注入结果..."
+if grep -q "CONFIG_PACKAGE_cups=y" .config && \
+   grep -q "CONFIG_PACKAGE_kmod-usb-printer=y" .config && \
+   grep -q "CONFIG_PACKAGE_libcups=y" .config; then
     echo "✅ CUPS 配置注入成功！"
-    echo "📦 已启用: cups, cups-client, cups-filters, kmod-usb-printer"
+    echo ""
+    echo "📦 已启用组件:"
+    echo "   • kmod-usb-printer  (USB 打印机内核模块)"
+    echo "   • cups              (CUPS 打印服务核心)"
+    echo "   • cups-client       (CUPS 客户端工具)"
+    echo "   • cups-filters      (CUPS 过滤驱动)"
+    echo "   • libcups           (CUPS 核心库)"
+    echo "   • libcupsimage      (CUPS 图像处理库)"
+    echo "   • libpng/libjpeg    (图像格式支持)"
+    echo ""
+    echo "🌐 管理界面: https://路由器IP:631"
+    echo "🔐 登录账号: root / 路由器密码"
+    echo "🔌 监听端口: TCP 631 (确保防火墙放行)"
+    echo ""
+    echo "📋 刷写固件后配置步骤:"
+    echo "   1. SSH 登录路由器: ssh root@192.168.1.1"
+    echo "   2. 启动 CUPS 服务:"
+    echo "      /etc/init.d/cupsd enable"
+    echo "      /etc/init.d/cupsd start"
+    echo "   3. 插入打印机后检查设备节点:"
+    echo "      ls -l /dev/usb/lp0"
+    echo "   4. 浏览器访问: https://192.168.1.1:631 添加打印机"
+    echo ""
+    echo "⚠️  HP Smart Tank 510 兼容性提示:"
+    echo "   • 优先使用打印机内置 Wi-Fi (支持 AirPrint)"
+    echo "   • 如通过 USB 共享，在 CUPS 界面选择:"
+    echo "     'HP → Smart Tank 510 series' 或 'Raw Queue'"
+    echo "   • 如遇问题可改用 p910nd 轻量方案"
 else
-    echo "❌ CUPS 配置注入失败，请检查 .config 文件"
+    echo "❌ CUPS 配置注入失败！"
+    echo "🔍 请检查 .config 文件内容:"
+    grep -E "cups|usb-printer" .config || echo "   (未找到相关配置)"
     exit 1
 fi
 
 # ========================================
-# 4. 其他自定义配置（按需添加）
+# 4. 其他自定义配置（按需扩展）
 # ========================================
 # 示例：修改默认主题
 # sed -i 's/CONFIG_PACKAGE_luci-theme-bootstrap=y/CONFIG_PACKAGE_luci-theme-argon=y/' .config
 
-echo "✅ 自定义配置完成，继续编译..."
+# 🚫禁用zabbix   python不需要的包节省空间
+sed -i 's/CONFIG_PACKAGE_zabbix.*=y/# CONFIG_PACKAGE_zabbix is not set/g' .config
+sed -i 's/CONFIG_PACKAGE_python-ubus.*=y/# CONFIG_PACKAGE_python-ubus is not set/g' .config
+
+
+# ========================================
+# 5. 固件空间检查（RAX3000M eMMC 版）
+# ========================================
+echo "📊 固件空间检查..."
+PARTSIZE=$(grep "CONFIG_TARGET_ROOTFS_PARTSIZE=" .config 2>/dev/null | cut -d'=' -f2 | tr -d '"')
+if [ -n "$PARTSIZE" ] && [ "$PARTSIZE" -ge 160 ]; then
+    echo "✅ 根文件系统: ${PARTSIZE}MB (充足，CUPS 约占用 10-13MB)"
+else
+    echo "⚠️  根文件系统: ${PARTSIZE:-未知}MB"
+    echo "💡  CUPS 完整方案建议 ≥128MB，当前配置可能空间紧张"
+fi
+
+# ========================================
+# 6. 编译前最终确认
+# ========================================
+echo ""
+echo "========================================"
+echo "✅ 自定义配置全部完成！"
+echo "========================================"
+echo ""
+echo "🚀 下一步操作:"
+echo "   1. (可选) 手动确认配置: make menuconfig"
+echo "   2. 开始编译固件: make -j\$(nproc) V=s"
+echo "   3. 或使用 GitHub Actions 自动编译"
+echo ""
+echo "📖 文档参考:"
+echo "   • CUPS 官方: https://www.cups.org/documentation.html"
+echo "   • OpenWrt:   https://openwrt.org/docs/guide-user/services/cups"
+echo "   • 问题反馈:  查看编译日志或固件刷写后 dmesg"
+echo "========================================"
