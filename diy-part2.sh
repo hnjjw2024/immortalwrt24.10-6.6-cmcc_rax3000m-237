@@ -62,6 +62,9 @@ CONFIG_PACKAGE_cups-filters=y
 CONFIG_PACKAGE_libcups=y
 CONFIG_PACKAGE_libcupsimage=y
 
+# 4. LuCI Web 管理界面
+CONFIG_PACKAGE_luci-app-usb-printer=y
+
 # 4. 可选依赖（提升打印机兼容性，尤其是 HP 喷墨打印机）
 CONFIG_PACKAGE_libpng=y
 CONFIG_PACKAGE_libjpeg=y
