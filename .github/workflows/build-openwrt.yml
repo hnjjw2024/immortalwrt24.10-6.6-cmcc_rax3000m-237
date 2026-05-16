@@ -20,7 +20,7 @@ on:
         default: 'false'
 
 env:
-  REPO_URL: https://github.com/padavanonly/immortalwrt-mt798x-6.6
+  REPO_URL: https://github.com/hnjjw2024/immortalwrt-mt798x-6.6   
   REPO_BRANCH: openwrt-24.10-6.6
   FEEDS_CONF: feeds.conf.default
   CONFIG_FILE: .config
@@ -172,7 +172,7 @@ jobs:
         echo "密码：无" >> release.txt
         echo "默认主题：Argon" >> release.txt
         echo "集成插件：aria2 openlist2 diskman lucky ksmb hd-idle autoreboot mtwifi-cfg passwall zerotier" >> release.txt
-        echo "编译源码：https://github.com/padavanonly/immortalwrt-mt798x-6.6" >> release.txt
+        echo "编译源码：https://github.com/hnjjw2024/immortalwrt-mt798x-6.6" >> release.txt
         echo "status=success" >> $GITHUB_OUTPUT
 
     # 🔧 修复三：版本号升级为 v2，消除 Node.js 20 的弃用警告
